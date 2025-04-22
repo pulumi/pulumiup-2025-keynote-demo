@@ -118,7 +118,7 @@ class ContainerApp(pulumi.ComponentResource):
             opts=child_opts
         )
         target_group = aws.lb.TargetGroup(f"{name}-tg",
-            port=80,
+            port=app_port,
             protocol="HTTP",
             target_type="ip",
             vpc_id=vpc.id,
@@ -128,7 +128,8 @@ class ContainerApp(pulumi.ComponentResource):
                 "interval": 30,
                 "timeout": 5,
                 "healthy_threshold": 2,
-                "unhealthy_threshold": 3
+                "unhealthy_threshold": 3,
+                "matcher": "200"
             },
             tags={"Name": f"{name}-tg"},
             opts=child_opts
@@ -296,7 +297,7 @@ class ContainerApp(pulumi.ComponentResource):
             load_balancers=[{
                 "target_group_arn": target_group.arn,
                 "container_name": "app",
-                "container_port": app_port
+                "container_port": int(app_port)  # Ensure port is integer
             }],
             opts=ResourceOptions(
                 parent=self,
