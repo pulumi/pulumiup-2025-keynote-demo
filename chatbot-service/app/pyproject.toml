@@ -1,0 +1,26 @@
+[build-system]
+requires = ["poetry-core>=1.8.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.poetry]
+name = "chatbot-api"
+version = "0.1.0"
+description = "Simple Flask API exposing /chat backed by OpenAI"
+authors = ["Komal Ali <you@example.com>"]
+license = "MIT"
+package-mode = false
+
+[tool.poetry.dependencies]
+python = "^3.11"              # match Dockerfile’s base image
+flask = "^3.0"
+openai = "^1.25"              # pin to a recent stable SDK
+# Optional: if you prefer gunicorn for prod
+# gunicorn = "^22.0"
+
+[tool.poetry.group.dev.dependencies]   # extras only needed locally
+pytest = "^8.0"
+ruff = "^0.3"                 # linting
+
+
+[tool.ruff]
+line-length = 100

@@ -1,0 +1,20 @@
+[build-system]
+requires = ["poetry-core>=1.8.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.poetry]
+name = "chatbot-infra"
+version = "0.1.0"
+description = "Pulumi stack that deploys the chat API to ECS Fargate"
+authors = ["Komal Ali <you@example.com>"]
+license = "MIT"
+package-mode = false
+
+[tool.poetry.dependencies]
+python = "^3.11"
+pulumi = "^3.108"           # always stay <4.0 for current SDKs
+pulumi-aws = "^6.37"
+pulumi-docker = "^4.4"
+pulumi-random = "^4.15"     # if you use random names/strings
+boto3 = "^1.34"             # handy for ad‑hoc scripting / helpers
+pulumi-docker-build = "^0.0.11"

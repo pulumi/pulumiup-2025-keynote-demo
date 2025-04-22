@@ -1,0 +1,10 @@
+name: chatbot-service
+description: A python chatbot service running on Fargate
+runtime:
+  name: python
+  options:
+    toolchain: poetry
+config:
+  pulumi:tags:
+    value:
+      pulumi:template: python
