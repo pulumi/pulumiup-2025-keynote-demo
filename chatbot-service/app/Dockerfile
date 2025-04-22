@@ -11,7 +11,7 @@ RUN pip install --no-cache-dir flask openai
 COPY app.py /app/
 
 # Expose port 80 (the Flask app listens on 80)
-EXPOSE 80
+EXPOSE 8080
 
 # Start the Flask server when the container launches
 CMD ["python", "app.py"]

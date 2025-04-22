@@ -28,6 +28,9 @@ class ContainerApp(pulumi.ComponentResource):
     def __init__(self, name: str, args: ContainerAppArgs, opts: pulumi.ResourceOptions = None):
         super().__init__("container-app:index:ContainerApp", name, {}, opts)
 
+        # Create a child resource options object
+        child_opts = pulumi.ResourceOptions(parent=self)
+
         # Get configuration values with defaults
         app_path = args["app_path"]
         app_port = args["app_port"]
@@ -53,16 +56,19 @@ class ContainerApp(pulumi.ComponentResource):
                 cidr_block="10.0.0.0/16",
                 enable_dns_hostnames=True,
                 enable_dns_support=True,
-                tags={"Name": f"{name}-vpc"}
+                tags={"Name": f"{name}-vpc"},
+                opts=child_opts
             )
             igw = aws.ec2.InternetGateway(f"{name}-igw",
                 vpc_id=vpc.id,
-                tags={"Name": f"{name}-igw"}
+                tags={"Name": f"{name}-igw"},
+                opts=child_opts
             )
             route_table = aws.ec2.RouteTable(f"{name}-public-rt",
                 vpc_id=vpc.id,
                 routes=[{"cidr_block": "0.0.0.0/0", "gateway_id": igw.id}],
-                tags={"Name": f"{name}-public-rt"}
+                tags={"Name": f"{name}-public-rt"},
+                opts=child_opts
             )
             azs = aws.get_availability_zones().names[:2]
             subnets = []
@@ -72,11 +78,13 @@ class ContainerApp(pulumi.ComponentResource):
                     availability_zone=az,
                     cidr_block=f"10.0.{i}.0/24",
                     map_public_ip_on_launch=True,
-                    tags={"Name": f"{name}-subnet-{i+1}"}
+                    tags={"Name": f"{name}-subnet-{i+1}"},
+                    opts=child_opts
                 )
                 aws.ec2.RouteTableAssociation(f"{name}-subnet-{i+1}-assoc",
                     subnet_id=subnet.id,
-                    route_table_id=route_table.id
+                    route_table_id=route_table.id,
+                    opts=child_opts
                 )
                 subnets.append(subnet.id)
 
@@ -91,18 +99,23 @@ class ContainerApp(pulumi.ComponentResource):
             egress=[
                 {"protocol": "-1", "from_port": 0, "to_port": 0, "cidr_blocks": ["0.0.0.0/0"]}
             ],
-            tags={"Name": f"{name}-web-sg"}
+            tags={"Name": f"{name}-web-sg"},
+            opts=child_opts
         )
 
         # (3) ECS Cluster
-        cluster = aws.ecs.Cluster(f"{name}-cluster", name=f"{name}-cluster")
+        cluster = aws.ecs.Cluster(f"{name}-cluster",
+            name=f"{name}-cluster",
+            opts=child_opts
+        )
 
         # (4) Load Balancer & Target Group
         alb = aws.lb.LoadBalancer(f"{name}-lb",
             security_groups=[web_sg.id],
             subnets=subnets,
             load_balancer_type="application",
-            tags={"Name": f"{name}-lb"}
+            tags={"Name": f"{name}-lb"},
+            opts=child_opts
         )
         target_group = aws.lb.TargetGroup(f"{name}-tg",
             port=80,
@@ -111,13 +124,14 @@ class ContainerApp(pulumi.ComponentResource):
             vpc_id=vpc.id,
             health_check={
                 "path": "/",
-                "port": str(app_port),
+                "port": app_port,
                 "interval": 30,
                 "timeout": 5,
                 "healthy_threshold": 2,
                 "unhealthy_threshold": 3
             },
-            tags={"Name": f"{name}-tg"}
+            tags={"Name": f"{name}-tg"},
+            opts=child_opts
         )
 
         # (5) ALB Listeners
@@ -128,7 +142,8 @@ class ContainerApp(pulumi.ComponentResource):
                 protocol="HTTPS",
                 ssl_policy="ELBSecurityPolicy-2016-08",
                 certificate_arn=alb_cert_arn,
-                default_actions=[{"type": "forward", "target_group_arn": target_group.arn}]
+                default_actions=[{"type": "forward", "target_group_arn": target_group.arn}],
+                opts=child_opts
             )
             http_listener = aws.lb.Listener(f"{name}-http-listener",
                 load_balancer_arn=alb.arn,
@@ -137,14 +152,16 @@ class ContainerApp(pulumi.ComponentResource):
                 default_actions=[{
                     "type": "redirect",
                     "redirect": {"protocol": "HTTPS", "port": "443", "status_code": "HTTP_301"}
-                }]
+                }],
+                opts=child_opts
             )
         else:
             http_listener = aws.lb.Listener(f"{name}-http-listener",
                 load_balancer_arn=alb.arn,
                 port=80,
                 protocol="HTTP",
-                default_actions=[{"type": "forward", "target_group_arn": target_group.arn}]
+                default_actions=[{"type": "forward", "target_group_arn": target_group.arn}],
+                opts=child_opts
             )
 
         # (6) IAM Roles
@@ -156,23 +173,49 @@ class ContainerApp(pulumi.ComponentResource):
                     "Principal": {"Service": "ecs-tasks.amazonaws.com"},
                     "Action": "sts:AssumeRole"
                 }]
-            })
+            }),
+            opts=child_opts
         )
         aws.iam.RolePolicyAttachment(f"{name}-task-exec-policy",
             role=task_exec_role.name,
-            policy_arn="arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
+            policy_arn="arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy",
+            opts=child_opts
+        )
+
+        # Add Secrets Manager policy
+        secrets_policy = aws.iam.Policy(f"{name}-secrets-manager-policy",
+            policy=pulumi.Output.all(secrets).apply(lambda s: json.dumps({
+                "Version": "2012-10-17",
+                "Statement": [{
+                    "Effect": "Allow",
+                    "Action": [
+                        "secretsmanager:GetSecretValue"
+                    ],
+                    "Resource": list(s[0].values())  # Get all secret ARNs from the secrets dict
+                }]
+            })),
+            opts=child_opts
+        )
+
+        # Attach the Secrets Manager policy to the task execution role
+        aws.iam.RolePolicyAttachment(f"{name}-secrets-manager-policy-attachment",
+            role=task_exec_role.name,
+            policy_arn=secrets_policy.arn,
+            opts=child_opts
         )
 
         # (7) Log Group
         log_group = aws.cloudwatch.LogGroup(f"{name}-logs",
             retention_in_days=7,
-            tags={"Name": f"{name}-logs"}
+            tags={"Name": f"{name}-logs"},
+            opts=child_opts
         )
 
         # (8) ECR Repository and Docker image
         repository = aws.ecr.Repository(f"{name}-repo",
             tags={"Name": f"{name}-repo"},
-            force_delete=True
+            force_delete=True,
+            opts=child_opts
         )
 
         def get_registry_info(rid):
@@ -199,7 +242,8 @@ class ContainerApp(pulumi.ComponentResource):
             registries=[registry],
             tags=[
                 repository.repository_url.apply(lambda url: f"{url}:latest"),
-            ]
+            ],
+            opts=child_opts
         )
         image_digest = image.digest
 
@@ -214,7 +258,7 @@ class ContainerApp(pulumi.ComponentResource):
             "name": "app",
             "image": f"{args[0]}@{args[1]}",
             "essential": True,
-            "portMappings": [{"containerPort": app_port, "hostPort": app_port, "protocol": "tcp"}],
+            "portMappings": [{"containerPort": int(app_port), "hostPort": int(app_port), "protocol": "tcp"}],
             "environment": [{"name": k, "value": v} for k, v in args[3].items()],
             "secrets": [{"name": k, "valueFrom": v} for k, v in args[4].items()],
             "logConfiguration": {
@@ -234,7 +278,8 @@ class ContainerApp(pulumi.ComponentResource):
             network_mode="awsvpc",
             requires_compatibilities=["FARGATE"],
             execution_role_arn=task_exec_role.arn,
-            container_definitions=container_def
+            container_definitions=container_def,
+            opts=child_opts
         )
 
         # (10) ECS Service
@@ -253,7 +298,10 @@ class ContainerApp(pulumi.ComponentResource):
                 "container_name": "app",
                 "container_port": app_port
             }],
-            opts=ResourceOptions(depends_on=[alb])
+            opts=ResourceOptions(
+                parent=self,
+                depends_on=[alb]
+            )
         )
 
         # Output the load balancer endpoint URL

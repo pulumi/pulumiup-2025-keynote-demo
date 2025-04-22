@@ -249,25 +249,6 @@ pulumi = ">=3.142.0,<4.0.0"
 semver = ">=2.8.1"
 
 [[package]]
-name = "pulumi_container_app"
-version = "0.0.0"
-description = ""
-optional = false
-python-versions = ">=3.9"
-groups = ["main"]
-files = []
-develop = false
-
-[package.dependencies]
-parver = ">=0.2.1"
-pulumi = ">=3.142.0,<4.0.0"
-semver = ">=2.8.1"
-
-[package.source]
-type = "directory"
-url = "sdks/container-app"
-
-[[package]]
 name = "pulumi-docker-build"
 version = "0.0.11"
 description = "A Pulumi provider for building modern Docker images with buildx and BuildKit."
@@ -362,4 +343,4 @@ files = [
 [metadata]
 lock-version = "2.1"
 python-versions = "^3.11"
-content-hash = "4866463cc5e27db7843a2bc0440d08eef77f7d46cf1e2f60bdaa694d8aeb2a56"
+content-hash = "b779c55c1ef94032a579592baeaa24daf772fd6967069daa6210fadf1f67cfb9"

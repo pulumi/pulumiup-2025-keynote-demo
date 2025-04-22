@@ -8,3 +8,5 @@ config:
   pulumi:tags:
     value:
       pulumi:template: python
+packages:
+  container-app: ../../components/container-app@0.0.0
