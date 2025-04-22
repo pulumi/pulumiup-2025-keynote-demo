@@ -2,7 +2,6 @@ import json
 import pulumi
 from pulumi import ResourceOptions, Config
 import pulumi_aws as aws
-import pulumi_docker as docker
 import pulumi_docker_build as docker_build
 import base64
 
