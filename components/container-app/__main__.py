@@ -17,7 +17,7 @@ class ContainerAppArgs(TypedDict):
     public_subnet_ids: Optional[pulumi.Input[List[str]]]  # Optional subnet IDs
     alb_cert_arn: Optional[pulumi.Input[str]]  # Optional ALB certificate ARN
     env: Optional[Dict[str, pulumi.Input[str]]]  # Environment variables
-    secrets: Optional[Dict[str, pulumi.Input[str]]]  # Secrets (ARNs)
+    secrets: Optional[Dict[str, pulumi.Input[str]]]  # Secrets
 
 class ContainerApp(pulumi.ComponentResource):
     """A component that deploys a containerized application to AWS ECS Fargate."""
@@ -42,6 +42,22 @@ class ContainerApp(pulumi.ComponentResource):
         alb_cert_arn = args.get("alb_cert_arn")
         env = args.get("env", {})
         secrets = args.get("secrets", {})
+
+        # Create secrets manager secrets
+        secret_arns_map = {}
+        if secrets:
+            for key, value in secrets.items():
+                secret = aws.secretsmanager.Secret(key,
+                    description=f"{key} for {name}",
+                    tags={"Name": key},
+                    opts=child_opts
+                )
+                aws.secretsmanager.SecretVersion(f"{key}-version",
+                    secret_id=secret.id,
+                    secret_string=value,
+                    opts=child_opts
+                )
+                secret_arns_map[key] = secret.arn
 
         # Get AWS region from config
         aws_region = Config("aws").require("region")
@@ -183,27 +199,32 @@ class ContainerApp(pulumi.ComponentResource):
             opts=child_opts
         )
 
-        # Add Secrets Manager policy
-        secrets_policy = aws.iam.Policy(f"{name}-secrets-manager-policy",
-            policy=pulumi.Output.all(secrets).apply(lambda s: json.dumps({
+        # Add Secrets Manager policy if there are secrets
+        if len(secret_arns_map) > 0:
+            # Get the ARNs directly from the dictionary values
+            secret_arns = list(secret_arns_map.values())
+            policy_doc = pulumi.Output.all(secret_arns).apply(lambda x: {
                 "Version": "2012-10-17",
                 "Statement": [{
                     "Effect": "Allow",
                     "Action": [
                         "secretsmanager:GetSecretValue"
                     ],
-                    "Resource": list(s[0].values())  # Get all secret ARNs from the secrets dict
+                    "Resource": x[0]
                 }]
-            })),
-            opts=child_opts
-        )
+            })
+            
+            secrets_policy = aws.iam.Policy(f"{name}-secrets-manager-policy",
+                policy=policy_doc.apply(lambda doc: json.dumps(doc)),
+                opts=child_opts
+            )
 
-        # Attach the Secrets Manager policy to the task execution role
-        aws.iam.RolePolicyAttachment(f"{name}-secrets-manager-policy-attachment",
-            role=task_exec_role.name,
-            policy_arn=secrets_policy.arn,
-            opts=child_opts
-        )
+            # Attach the Secrets Manager policy to the task execution role
+            aws.iam.RolePolicyAttachment(f"{name}-secrets-manager-policy-attachment",
+                role=task_exec_role.name,
+                policy_arn=secrets_policy.arn,
+                opts=child_opts
+            )
 
         # (7) Log Group
         log_group = aws.cloudwatch.LogGroup(f"{name}-logs",
@@ -254,7 +275,7 @@ class ContainerApp(pulumi.ComponentResource):
             image_digest,
             log_group.name,
             env,
-            secrets
+            secret_arns_map
         ).apply(lambda args: json.dumps([{
             "name": "app",
             "image": f"{args[0]}@{args[1]}",

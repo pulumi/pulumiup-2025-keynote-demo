@@ -19,17 +19,6 @@ config:
     type: string
     secret: true
 resources:
-  openai-api-key-secret:
-    type: aws:secretsmanager:Secret
-    properties:
-      description: OpenAI API key for chat application
-      tags:
-        Name: openai-api-key
-  openai-api-key-value:
-    type: aws:secretsmanager:SecretVersion
-    properties:
-      secretId: ${openai-api-key-secret.id}
-      secretString: ${openaiApiKey}
   chat-app:
     type: container-app:ContainerApp
     properties:
@@ -39,6 +28,6 @@ resources:
       publicSubnetIds: ${publicSubnetIds}
       albCertArn: ${albCertificateArn}
       secrets:
-        OPENAI_API_KEY: ${openai-api-key-secret.arn}
+        OPENAI_API_KEY: ${openaiApiKey}
 outputs:
   url: ${chat-app.url}
