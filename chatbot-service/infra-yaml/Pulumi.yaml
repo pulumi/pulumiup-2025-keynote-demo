@@ -1,5 +1,5 @@
 name: chatbot-service-yaml
-description: A python chatbot service running on Fargate
+description: A chatbot service running on Fargate
 runtime: yaml
 packages:
   container-app: ../components/container-app@0.0.0
