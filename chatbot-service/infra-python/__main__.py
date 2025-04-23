@@ -6,10 +6,10 @@ import pulumi_container_app as container_app
 
 # Read stack configuration
 config = Config()
-aws_region = Config("aws").require("region")  # AWS region (must be set in Pulumi config) [oai_citation_attribution:2‡pulumi.com](https://www.pulumi.com/registry/packages/aws/how-to-guides/aws-py-fargate/#:~:text=2,region)
+aws_region = Config("aws").require("region")
 vpc_id = config.get("vpcId")
 subnet_ids = config.get("publicSubnetIds")
-alb_cert_arn = config.get("albCertificateArn")  # Optional ACM certificate ARN for HTTPS
+alb_cert_arn = config.get("albCertificateArn")
 
 # Parse subnet IDs if provided
 if subnet_ids:
@@ -39,10 +39,6 @@ chat_app = container_app.ContainerApp("chat-app",
     secrets={
         "OPENAI_API_KEY": openai_api_key.arn,
     },
-    # Use default values for other parameters:
-    # cpu=256,           # 0.25 vCPU
-    # memory=512,        # 0.5 GB
-    # desired_count=2,   # Number of tasks
 )
 
 # Export the URL of the deployed application
