@@ -9,4 +9,4 @@ config:
     value:
       pulumi:template: python
 packages:
-  container-app: ../../components/container-app@0.0.0
+  container-app: ../components/container-app@0.0.0

@@ -2,7 +2,7 @@ name: chatbot-service-yaml
 description: A chatbot service running on Fargate
 runtime: yaml
 packages:
-  container-app: ../components/container-app@0.0.0
+  container-app: ../../components/container-app@0.0.0
 config:
   vpcId:
     type: string
