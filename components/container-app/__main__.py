@@ -94,7 +94,8 @@ class ContainerApp(pulumi.ComponentResource):
             description="Security group for web LB and ECS tasks",
             ingress=[
                 {"protocol": "tcp", "from_port": 80, "to_port": 80, "cidr_blocks": ["0.0.0.0/0"]},
-                {"protocol": "tcp", "from_port": 443, "to_port": 443, "cidr_blocks": ["0.0.0.0/0"]}
+                {"protocol": "tcp", "from_port": 443, "to_port": 443, "cidr_blocks": ["0.0.0.0/0"]},
+                {"protocol": "tcp", "from_port": 8080, "to_port": 8080, "self":True}
             ],
             egress=[
                 {"protocol": "-1", "from_port": 0, "to_port": 0, "cidr_blocks": ["0.0.0.0/0"]}
@@ -105,7 +106,6 @@ class ContainerApp(pulumi.ComponentResource):
 
         # (3) ECS Cluster
         cluster = aws.ecs.Cluster(f"{name}-cluster",
-            name=f"{name}-cluster",
             opts=child_opts
         )
 
@@ -124,11 +124,11 @@ class ContainerApp(pulumi.ComponentResource):
             vpc_id=vpc.id,
             health_check={
                 "path": "/",
-                "port": app_port,
-                "interval": 30,
-                "timeout": 5,
+                "port": "traffic-port",
+                "interval": 90,
+                "timeout": 15,
                 "healthy_threshold": 2,
-                "unhealthy_threshold": 3,
+                "unhealthy_threshold": 5,
                 "matcher": "200"
             },
             tags={"Name": f"{name}-tg"},
@@ -299,6 +299,7 @@ class ContainerApp(pulumi.ComponentResource):
                 "container_name": "app",
                 "container_port": int(app_port)  # Ensure port is integer
             }],
+            health_check_grace_period_seconds=120,  # Add grace period for health checks
             opts=ResourceOptions(
                 parent=self,
                 depends_on=[alb]

@@ -1,0 +1,2 @@
+environment:
+  - komal/pulumi-up-keynote-demo

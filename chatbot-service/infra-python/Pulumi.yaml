@@ -1,4 +1,4 @@
-name: chatbot-service
+name: chatbot-service-python
 description: A python chatbot service running on Fargate
 runtime:
   name: python

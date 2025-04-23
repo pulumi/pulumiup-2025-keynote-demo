@@ -1,0 +1,44 @@
+name: chatbot-service-yaml
+description: A python chatbot service running on Fargate
+runtime: yaml
+packages:
+  container-app: ../components/container-app@0.0.0
+config:
+  vpcId:
+    type: string
+    default: ""
+  publicSubnetIds:
+    type: array
+    items:
+      type: string
+    default: []
+  albCertificateArn:
+    type: string
+    default: ""
+  openaiApiKey:
+    type: string
+    secret: true
+resources:
+  openai-api-key-secret:
+    type: aws:secretsmanager:Secret
+    properties:
+      description: OpenAI API key for chat application
+      tags:
+        Name: openai-api-key
+  openai-api-key-value:
+    type: aws:secretsmanager:SecretVersion
+    properties:
+      secretId: ${openai-api-key-secret.id}
+      secretString: ${openaiApiKey}
+  chat-app:
+    type: container-app:ContainerApp
+    properties:
+      appPath: ../app                   # path to your Flask app / Dockerfile
+      appPort: 8080                     # container listens on 8080
+      vpcId: ${vpcId}            # omit if you want Pulumi to create one
+      publicSubnetIds: ${publicSubnetIds}
+      albCertArn: ${albCertificateArn}
+      secrets:
+        OPENAI_API_KEY: ${openai-api-key-secret.arn}
+outputs:
+  url: ${chat-app.url}
