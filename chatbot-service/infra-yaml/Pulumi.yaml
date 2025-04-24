@@ -1,33 +1,26 @@
-name: chatbot-service-yaml
-description: A chatbot service running on Fargate
+name: infra-yaml
+description: A containerized chatbot application deployed to AWS ECS Fargate with an Application Load Balancer
 runtime: yaml
 packages:
-  container-app: ../../components/container-app@0.0.0
-config:
-  vpcId:
-    type: string
-    default: ""
-  publicSubnetIds:
-    type: array
-    items:
-      type: string
-    default: []
-  albCertificateArn:
-    type: string
-    default: ""
-  openaiApiKey:
-    type: string
-    secret: true
+  container-app: ../../components/container-app@0.1.0
 resources:
-  chat-app:
-    type: container-app:ContainerApp
+  # Create the container app using our component
+  app:
+    type: container-app:index:ContainerApp
     properties:
-      appPath: ../app                   # path to your Flask app / Dockerfile
-      appPort: 8080                     # container listens on 8080
-      vpcId: ${vpcId}            # omit if you want Pulumi to create one
-      publicSubnetIds: ${publicSubnetIds}
-      albCertArn: ${albCertificateArn}
+      appPath: ${app_path}
+      appPort: ${app_port}
+      env:
+        ENVIRONMENT: ${environment}
+      cpu: ${cpu}
+      memory: ${memory}
+      desiredCount: ${desired_count}
       secrets:
-        OPENAI_API_KEY: ${openaiApiKey}
+        OPENAI_API_KEY: ${openai_api_key}
+# Export the URL of the deployed application
 outputs:
-  url: ${chat-app.url}
+  url: ${app.url}
+config:
+  pulumi:tags:
+    value:
+      pulumi:template: ../../templates/chatbot-container-app

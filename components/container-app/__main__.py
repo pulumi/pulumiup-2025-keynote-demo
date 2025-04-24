@@ -4,14 +4,14 @@ from pulumi import ResourceOptions, Config
 import pulumi_aws as aws
 import pulumi_docker_build as docker_build
 import base64
-from typing import Optional, TypedDict, Dict, Any, List
+from typing import Optional, TypedDict, Dict, List
 
 class ContainerAppArgs(TypedDict):
     """Arguments for the ContainerApp component."""
     app_path: pulumi.Input[str]  # Path to the application code
     app_port: pulumi.Input[int]  # Port the app listens on
-    cpu: Optional[pulumi.Input[int]]  # CPU units (256 = 0.25 vCPU)
-    memory: Optional[pulumi.Input[int]]  # Memory in MB
+    cpu: Optional[pulumi.Input[str]]  # CPU units (256 = 0.25 vCPU)
+    memory: Optional[pulumi.Input[str]]  # Memory in MB
     desired_count: Optional[pulumi.Input[int]]  # Number of tasks to run
     vpc_id: Optional[pulumi.Input[str]]  # Optional VPC ID
     public_subnet_ids: Optional[pulumi.Input[List[str]]]  # Optional subnet IDs
@@ -34,14 +34,17 @@ class ContainerApp(pulumi.ComponentResource):
         # Get configuration values with defaults
         app_path = args["app_path"]
         app_port = args["app_port"]
-        cpu = args.get("cpu", 256)
-        memory = args.get("memory", 512)
+        cpu = str(int(args.get("cpu", "256")))  # Convert to int then string because for some reason it's coming as a float otherwise
+        memory = str(int(args.get("memory", "512")) ) # Convert to int then string because for some reason it's coming as a float otherwise
         desired_count = args.get("desired_count", 2)
         vpc_id = args.get("vpc_id")
         public_subnet_ids = args.get("public_subnet_ids")
         alb_cert_arn = args.get("alb_cert_arn")
         env = args.get("env", {})
         secrets = args.get("secrets", {})
+
+        # Log the CPU and memory values
+        pulumi.log.info(f"CPU: {cpu}, Memory: {memory}")
 
         # Create secrets manager secrets
         secret_arns_map = {}

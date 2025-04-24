@@ -1,2 +1,10 @@
+config:
+  aws:region: us-west-2
+  infra-yaml:app_path: ../app
+  infra-yaml:app_port: "8080"
+  infra-yaml:cpu: 256
+  infra-yaml:desired_count: "1"
+  infra-yaml:environment: dev
+  infra-yaml:memory: 512
 environment:
   - komal/pulumi-up-keynote-demo
