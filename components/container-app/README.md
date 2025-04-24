@@ -29,13 +29,6 @@ app = ContainerApp("my-app",
     secrets={
         "OPENAI_API_KEY": openai_api_key,
     },
-    # Optional parameters with defaults:
-    # cpu=256,           # 0.25 vCPU
-    # memory=512,        # 0.5 GB
-    # desired_count=2,   # Number of tasks
-    # vpc_id=None,       # Use existing VPC
-    # public_subnet_ids=None,  # Use existing subnets
-    # alb_cert_arn=None,  # Enable HTTPS
 )
 
 # Get the URL of the deployed application
