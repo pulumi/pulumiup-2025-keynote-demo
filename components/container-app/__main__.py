@@ -34,8 +34,8 @@ class ContainerApp(pulumi.ComponentResource):
         # Get configuration values with defaults
         app_path = args["app_path"]
         app_port = args["app_port"]
-        cpu = str(int(args.get("cpu", "256")))  # Convert to int then string because for some reason it's coming as a float otherwise
-        memory = str(int(args.get("memory", "512")) ) # Convert to int then string because for some reason it's coming as a float otherwise
+        cpu = str(int(args.get("cpu", "256")))  # Convert to int then string because it's coming through as a float otherwise
+        memory = str(int(args.get("memory", "512"))) # Convert to int then string because it's coming through as a float otherwise
         desired_count = args.get("desired_count", 2)
         vpc_id = args.get("vpc_id")
         public_subnet_ids = args.get("public_subnet_ids")
@@ -298,8 +298,8 @@ class ContainerApp(pulumi.ComponentResource):
 
         task_def = aws.ecs.TaskDefinition(f"{name}-task",
             family=f"{name}-task",
-            cpu=str(cpu),
-            memory=str(memory),
+            cpu=cpu,
+            memory=memory,
             network_mode="awsvpc",
             requires_compatibilities=["FARGATE"],
             execution_role_arn=task_exec_role.arn,
