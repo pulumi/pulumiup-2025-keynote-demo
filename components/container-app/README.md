@@ -17,10 +17,12 @@ A Pulumi component that deploys containerized applications to AWS ECS Fargate wi
 ## Installation
 
 ```bash
-pulumi package install container-app
+GITHUB_TOKEN=$(gh auth token) pulumi package add github.com/pulumi/pulumiup-2025-keynote-demo/components/container-app
 ```
 
 ## Usage
+
+### Python
 
 ```python
 import * as pulumi from "@pulumi/pulumi";
@@ -43,6 +45,53 @@ const app = new ContainerApp("my-app", {
 
 export const url = app.url;
 export const metricsUrl = app.metricsUrl;
+```
+
+### YAML
+
+```yaml
+name: my-app
+runtime: yaml
+
+packages:
+  container-app: github.com/pulumi/pulumiup-2025-keynote-demo/components/container-app@v0.5.0
+
+config:
+  aws:region:
+    default: us-west-2
+  app_port:
+    default: 8080
+  app_path:
+    default: ./app
+  environment:
+    default: dev
+  cpu:
+    default: "256"
+  memory:
+    default: "512"
+  desired_count:
+    default: 2
+  owner:
+    default: "team-a"
+
+resources:
+  app:
+    type: container-app:index:ContainerApp
+    properties:
+      appPath: ${app_path}
+      appPort: ${app_port}
+      cpu: ${cpu}
+      memory: ${memory}
+      env:
+        ENVIRONMENT: ${environment}
+      desiredCount: ${desired_count}
+      owner: ${owner}
+      secrets:
+        API_KEY: ${api_key}
+
+outputs:
+  url: ${app.url}
+  metricsUrl: ${app.metricsUrl}
 ```
 
 ## API Documentation

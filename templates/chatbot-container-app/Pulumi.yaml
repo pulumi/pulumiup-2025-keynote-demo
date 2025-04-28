@@ -1,10 +1,8 @@
 name: ${PROJECT}
 description: ${DESCRIPTION}
 runtime: yaml
-
 packages:
-  container-app: ../../components/container-app
-
+  container-app: github.com/pulumi/pulumiup-2025-keynote-demo/components/container-app@0.5.0
 # Define the template's configuration settings
 template:
   description: A containerized chatbot application deployed to AWS ECS Fargate with an Application Load Balancer
@@ -14,7 +12,7 @@ template:
       default: us-west-2
     app_port:
       description: The port your application listens on
-      default: 8080
+      default: "8080"
     app_path:
       description: The path to your application code
       default: ./app
@@ -23,7 +21,7 @@ template:
       default: dev
     desired_count:
       description: The desired number of tasks to run
-      default: 1
+      default: "1"
     cpu:
       description: CPU units for the container (1024 = 1 vCPU)
       default: "256"
@@ -35,7 +33,6 @@ template:
       secret: true
     owner:
       description: The owner of the resources (used for tagging)
-
 resources:
   # Create the container app using our component
   app:
@@ -51,7 +48,6 @@ resources:
       owner: ${owner}
       secrets:
         OPENAI_API_KEY: ${openai_api_key}
-
 # Export the URL of the deployed application
 outputs:
   url: ${app.url}
