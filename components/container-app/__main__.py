@@ -18,12 +18,16 @@ class ContainerAppArgs(TypedDict):
     alb_cert_arn: Optional[pulumi.Input[str]]  # Optional ALB certificate ARN
     env: Optional[Dict[str, pulumi.Input[str]]]  # Environment variables
     secrets: Optional[Dict[str, pulumi.Input[str]]]  # Secrets
+    owner: Optional[pulumi.Input[str]]  # Owner tag value
 
 class ContainerApp(pulumi.ComponentResource):
     """A component that deploys a containerized application to AWS ECS Fargate."""
     
     url: pulumi.Output[str]
     """The URL of the deployed application."""
+    
+    metrics_url: pulumi.Output[str]
+    """The URL to the ECS service metrics dashboard."""
 
     def __init__(self, name: str, args: ContainerAppArgs, opts: pulumi.ResourceOptions = None):
         super().__init__("container-app:index:ContainerApp", name, {}, opts)
@@ -42,9 +46,12 @@ class ContainerApp(pulumi.ComponentResource):
         alb_cert_arn = args.get("alb_cert_arn")
         env = args.get("env", {})
         secrets = args.get("secrets", {})
+        owner = args.get("owner")
 
-        # Log the CPU and memory values
-        pulumi.log.info(f"CPU: {cpu}, Memory: {memory}")
+        # Create a common tags dictionary
+        common_tags = {"Name": name}
+        if owner:
+            common_tags["Owner"] = owner
 
         # Create secrets manager secrets
         secret_arns_map = {}
@@ -52,7 +59,7 @@ class ContainerApp(pulumi.ComponentResource):
             for key, value in secrets.items():
                 secret = aws.secretsmanager.Secret(key,
                     description=f"{key} for {name}",
-                    tags={"Name": key},
+                    tags={**common_tags, "Name": key},
                     opts=child_opts
                 )
                 aws.secretsmanager.SecretVersion(f"{key}-version",
@@ -75,18 +82,18 @@ class ContainerApp(pulumi.ComponentResource):
                 cidr_block="10.0.0.0/16",
                 enable_dns_hostnames=True,
                 enable_dns_support=True,
-                tags={"Name": f"{name}-vpc"},
+                tags=common_tags,
                 opts=child_opts
             )
             igw = aws.ec2.InternetGateway(f"{name}-igw",
                 vpc_id=vpc.id,
-                tags={"Name": f"{name}-igw"},
+                tags=common_tags,
                 opts=child_opts
             )
             route_table = aws.ec2.RouteTable(f"{name}-public-rt",
                 vpc_id=vpc.id,
                 routes=[{"cidr_block": "0.0.0.0/0", "gateway_id": igw.id}],
-                tags={"Name": f"{name}-public-rt"},
+                tags=common_tags,
                 opts=child_opts
             )
             azs = aws.get_availability_zones().names[:2]
@@ -97,7 +104,7 @@ class ContainerApp(pulumi.ComponentResource):
                     availability_zone=az,
                     cidr_block=f"10.0.{i}.0/24",
                     map_public_ip_on_launch=True,
-                    tags={"Name": f"{name}-subnet-{i+1}"},
+                    tags=common_tags,
                     opts=child_opts
                 )
                 aws.ec2.RouteTableAssociation(f"{name}-subnet-{i+1}-assoc",
@@ -119,12 +126,13 @@ class ContainerApp(pulumi.ComponentResource):
             egress=[
                 {"protocol": "-1", "from_port": 0, "to_port": 0, "cidr_blocks": ["0.0.0.0/0"]}
             ],
-            tags={"Name": f"{name}-web-sg"},
+            tags=common_tags,
             opts=child_opts
         )
 
         # (3) ECS Cluster
         cluster = aws.ecs.Cluster(f"{name}-cluster",
+            tags=common_tags,
             opts=child_opts
         )
 
@@ -133,7 +141,7 @@ class ContainerApp(pulumi.ComponentResource):
             security_groups=[web_sg.id],
             subnets=subnets,
             load_balancer_type="application",
-            tags={"Name": f"{name}-lb"},
+            tags=common_tags,
             opts=child_opts
         )
         target_group = aws.lb.TargetGroup(f"{name}-tg",
@@ -150,7 +158,7 @@ class ContainerApp(pulumi.ComponentResource):
                 "unhealthy_threshold": 5,
                 "matcher": "200"
             },
-            tags={"Name": f"{name}-tg"},
+            tags=common_tags,
             opts=child_opts
         )
 
@@ -163,6 +171,7 @@ class ContainerApp(pulumi.ComponentResource):
                 ssl_policy="ELBSecurityPolicy-2016-08",
                 certificate_arn=alb_cert_arn,
                 default_actions=[{"type": "forward", "target_group_arn": target_group.arn}],
+                tags=common_tags,
                 opts=child_opts
             )
             http_listener = aws.lb.Listener(f"{name}-http-listener",
@@ -173,6 +182,7 @@ class ContainerApp(pulumi.ComponentResource):
                     "type": "redirect",
                     "redirect": {"protocol": "HTTPS", "port": "443", "status_code": "HTTP_301"}
                 }],
+                tags=common_tags,
                 opts=child_opts
             )
         else:
@@ -181,6 +191,7 @@ class ContainerApp(pulumi.ComponentResource):
                 port=80,
                 protocol="HTTP",
                 default_actions=[{"type": "forward", "target_group_arn": target_group.arn}],
+                tags=common_tags,
                 opts=child_opts
             )
 
@@ -194,6 +205,7 @@ class ContainerApp(pulumi.ComponentResource):
                     "Action": "sts:AssumeRole"
                 }]
             }),
+            tags=common_tags,
             opts=child_opts
         )
         aws.iam.RolePolicyAttachment(f"{name}-task-exec-policy",
@@ -219,6 +231,7 @@ class ContainerApp(pulumi.ComponentResource):
             
             secrets_policy = aws.iam.Policy(f"{name}-secrets-manager-policy",
                 policy=policy_doc.apply(lambda doc: json.dumps(doc)),
+                tags=common_tags,
                 opts=child_opts
             )
 
@@ -232,13 +245,13 @@ class ContainerApp(pulumi.ComponentResource):
         # (7) Log Group
         log_group = aws.cloudwatch.LogGroup(f"{name}-logs",
             retention_in_days=7,
-            tags={"Name": f"{name}-logs"},
+            tags=common_tags,
             opts=child_opts
         )
 
         # (8) ECR Repository and Docker image
         repository = aws.ecr.Repository(f"{name}-repo",
-            tags={"Name": f"{name}-repo"},
+            tags=common_tags,
             force_delete=True,
             opts=child_opts
         )
@@ -304,6 +317,7 @@ class ContainerApp(pulumi.ComponentResource):
             requires_compatibilities=["FARGATE"],
             execution_role_arn=task_exec_role.arn,
             container_definitions=container_def,
+            tags=common_tags,
             opts=child_opts
         )
 
@@ -324,6 +338,7 @@ class ContainerApp(pulumi.ComponentResource):
                 "container_port": int(app_port)  # Ensure port is integer
             }],
             health_check_grace_period_seconds=120,  # Add grace period for health checks
+            tags=common_tags,
             opts=ResourceOptions(
                 parent=self,
                 depends_on=[alb]
@@ -334,7 +349,16 @@ class ContainerApp(pulumi.ComponentResource):
         self.url = alb.dns_name.apply(
             lambda dns: f"https://{dns}" if alb_cert_arn else f"http://{dns}"
         )
-        self.register_outputs({"url": self.url})
+        
+        # Output the metrics dashboard URL
+        self.metrics_url = pulumi.Output.all(aws_region, service.name, cluster.name).apply(
+            lambda args: f"https://{args[0]}.console.aws.amazon.com/ecs/home?region={args[0]}#/clusters/{args[2]}/services/{args[1]}/metrics"
+        )
+        
+        self.register_outputs({
+            "url": self.url,
+            "metricsUrl": self.metrics_url
+        })
 
 if __name__ == "__main__":
     from pulumi.provider.experimental import component_provider_host

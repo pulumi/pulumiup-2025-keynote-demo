@@ -1,10 +1,11 @@
 config:
   aws:region: us-west-2
-  chatbot-service-yaml:app_path: ../app
-  chatbot-service-yaml:app_port: "8080"
-  chatbot-service-yaml:cpu: "256"
-  chatbot-service-yaml:desired_count: "1"
-  chatbot-service-yaml:environment: dev
-  chatbot-service-yaml:memory: "512"
+  chatbot-yaml:app_path: ../app
+  chatbot-yaml:app_port: "8080"
+  chatbot-yaml:cpu: "256"
+  chatbot-yaml:desired_count: "1"
+  chatbot-yaml:environment: dev
+  chatbot-yaml:memory: "512"
+  chatbot-yaml:owner: komal
 environment:
-  - komal/pulumi-up-keynote-demo
+  - common/chatbot-secrets
