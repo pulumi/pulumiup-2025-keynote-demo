@@ -51,7 +51,7 @@ class ContainerApp(pulumi.ComponentResource):
         image = args.get("image")
 
         # Validate that either app_path or image is provided
-        if not app_path and not image:
+        if not app_path and not image and not (app_path == "none" or image == "none"):
             raise ValueError("Either app_path or image must be provided")
 
         # Create a common tags dictionary
@@ -259,7 +259,7 @@ class ContainerApp(pulumi.ComponentResource):
         )
 
         # (8) ECR Repository and Docker image
-        if app_path:
+        if app_path and app_path != "none":
             repository = aws.ecr.Repository(f"{name}-repo",
                 tags=common_tags,
                 force_delete=True,
@@ -293,8 +293,7 @@ class ContainerApp(pulumi.ComponentResource):
                 ],
                 opts=child_opts
             )
-            image_digest = built_image.digest
-            image_url = repository.repository_url.apply(lambda url: f"{url}@{image_digest}")
+            image_url = repository.repository_url.apply(lambda url: f"{url}:latest")
         else:
             # Use the provided image
             image_url = pulumi.Output.from_input(image)
