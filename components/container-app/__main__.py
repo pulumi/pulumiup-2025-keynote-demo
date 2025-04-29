@@ -8,7 +8,7 @@ from typing import Optional, TypedDict, Dict, List
 
 class ContainerAppArgs(TypedDict):
     """Arguments for the ContainerApp component."""
-    app_path: pulumi.Input[str]  # Path to the application code
+    app_path: Optional[pulumi.Input[str]]  # Path to the application code
     app_port: pulumi.Input[int]  # Port the app listens on
     cpu: Optional[pulumi.Input[str]]  # CPU units (256 = 0.25 vCPU)
     memory: Optional[pulumi.Input[str]]  # Memory in MB
@@ -19,6 +19,7 @@ class ContainerAppArgs(TypedDict):
     env: Optional[Dict[str, pulumi.Input[str]]]  # Environment variables
     secrets: Optional[Dict[str, pulumi.Input[str]]]  # Secrets
     owner: Optional[pulumi.Input[str]]  # Owner tag value
+    image: Optional[pulumi.Input[str]]  # Optional Docker image to use instead of building from app_path
 
 class ContainerApp(pulumi.ComponentResource):
     """A component that deploys a containerized application to AWS ECS Fargate."""
@@ -36,7 +37,7 @@ class ContainerApp(pulumi.ComponentResource):
         child_opts = pulumi.ResourceOptions(parent=self)
 
         # Get configuration values with defaults
-        app_path = args["app_path"]
+        app_path = args.get("app_path")
         app_port = args["app_port"]
         cpu = str(int(args.get("cpu", "256")))  # Convert to int then string because it's coming through as a float otherwise
         memory = str(int(args.get("memory", "512"))) # Convert to int then string because it's coming through as a float otherwise
@@ -47,11 +48,19 @@ class ContainerApp(pulumi.ComponentResource):
         env = args.get("env", {})
         secrets = args.get("secrets", {})
         owner = args.get("owner")
+        image = args.get("image")
+
+        # Validate that either app_path or image is provided
+        if not app_path and not image:
+            raise ValueError("Either app_path or image must be provided")
 
         # Create a common tags dictionary
         common_tags = {"Name": name}
         if owner:
             common_tags["Owner"] = owner
+
+        # Log the CPU and memory values
+        pulumi.log.info(f"CPU: {cpu}, Memory: {memory}")
 
         # Create secrets manager secrets
         secret_arns_map = {}
@@ -250,59 +259,63 @@ class ContainerApp(pulumi.ComponentResource):
         )
 
         # (8) ECR Repository and Docker image
-        repository = aws.ecr.Repository(f"{name}-repo",
-            tags=common_tags,
-            force_delete=True,
-            opts=child_opts
-        )
-
-        def get_registry_info(rid):
-            creds = aws.ecr.get_credentials(registry_id=rid)
-            decoded = base64.b64decode(creds.authorization_token).decode()
-            parts = decoded.split(":")
-            if len(parts) != 2:
-                raise Exception("Invalid credentials")
-            return docker_build.RegistryArgs(
-                address=creds.proxy_endpoint,
-                username=parts[0],
-                password=parts[1]
+        if app_path:
+            repository = aws.ecr.Repository(f"{name}-repo",
+                tags=common_tags,
+                force_delete=True,
+                opts=child_opts
             )
 
-        registry = repository.registry_id.apply(get_registry_info)
+            def get_registry_info(rid):
+                creds = aws.ecr.get_credentials(registry_id=rid)
+                decoded = base64.b64decode(creds.authorization_token).decode()
+                parts = decoded.split(":")
+                if len(parts) != 2:
+                    raise Exception("Invalid credentials")
+                return docker_build.RegistryArgs(
+                    address=creds.proxy_endpoint,
+                    username=parts[0],
+                    password=parts[1]
+                )
 
-        image = docker_build.Image(
-            f"{name}-image",
-            context=docker_build.BuildContextArgs(
-                location=app_path,
-            ),
-            platforms=["linux/amd64"],
-            push=True,
-            registries=[registry],
-            tags=[
-                repository.repository_url.apply(lambda url: f"{url}:latest"),
-            ],
-            opts=child_opts
-        )
-        image_digest = image.digest
+            registry = repository.registry_id.apply(get_registry_info)
+
+            built_image = docker_build.Image(
+                f"{name}-image",
+                context=docker_build.BuildContextArgs(
+                    location=app_path,
+                ),
+                platforms=["linux/amd64"],
+                push=True,
+                registries=[registry],
+                tags=[
+                    repository.repository_url.apply(lambda url: f"{url}:latest"),
+                ],
+                opts=child_opts
+            )
+            image_digest = built_image.digest
+            image_url = repository.repository_url.apply(lambda url: f"{url}@{image_digest}")
+        else:
+            # Use the provided image
+            image_url = pulumi.Output.from_input(image)
 
         # (9) ECS Task Definition
         container_def = pulumi.Output.all(
-            repository.repository_url,
-            image_digest,
+            image_url,
             log_group.name,
             env,
             secret_arns_map
         ).apply(lambda args: json.dumps([{
             "name": "app",
-            "image": f"{args[0]}@{args[1]}",
+            "image": args[0],
             "essential": True,
             "portMappings": [{"containerPort": int(app_port), "hostPort": int(app_port), "protocol": "tcp"}],
-            "environment": [{"name": k, "value": v} for k, v in args[3].items()],
-            "secrets": [{"name": k, "valueFrom": v} for k, v in args[4].items()],
+            "environment": [{"name": k, "value": v} for k, v in args[2].items()],
+            "secrets": [{"name": k, "valueFrom": v} for k, v in args[3].items()],
             "logConfiguration": {
                 "logDriver": "awslogs",
                 "options": {
-                    "awslogs-group": args[2],
+                    "awslogs-group": args[1],
                     "awslogs-region": aws_region,
                     "awslogs-stream-prefix": "app"
                 }

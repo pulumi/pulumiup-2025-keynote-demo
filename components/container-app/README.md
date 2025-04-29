@@ -9,7 +9,7 @@ A Pulumi component that deploys containerized applications to AWS ECS Fargate wi
 - Sets up an Application Load Balancer
 - Configures CloudWatch logging
 - Supports environment variables and secrets
-- Automatic container image building and pushing to ECR
+- Automatic container image building and pushing to ECR (optional)
 - Resource tagging with owner information
 - ECS service metrics dashboard access
 - Secure networking with restricted VPC access
@@ -24,6 +24,7 @@ GITHUB_TOKEN=$(gh auth token) pulumi package add github.com/pulumi/pulumiup-2025
 
 ### Python
 
+#### Using Application Code Directory
 ```python
 import * as pulumi from "@pulumi/pulumi";
 import { ContainerApp } from "container-app";
@@ -47,14 +48,39 @@ export const url = app.url;
 export const metricsUrl = app.metricsUrl;
 ```
 
+#### Using Existing Docker Image
+```python
+import * as pulumi from "@pulumi/pulumi";
+import { ContainerApp } from "container-app";
+
+const app = new ContainerApp("my-app", {
+    image: "my-registry/my-app:latest",
+    appPort: 8080,
+    cpu: "256",
+    memory: "512",
+    desiredCount: 2,
+    env: {
+        ENVIRONMENT: "dev",
+    },
+    secrets: {
+        API_KEY: "my-secret-key",
+    },
+    owner: "team-a",
+});
+
+export const url = app.url;
+export const metricsUrl = app.metricsUrl;
+```
+
 ### YAML
 
+#### Using Application Code Directory
 ```yaml
 name: my-app
 runtime: yaml
 
 packages:
-  container-app: github.com/pulumi/pulumiup-2025-keynote-demo/components/container-app@v0.5.0
+  container-app: github.com/pulumi/pulumiup-2025-keynote-demo/components/container-app
 
 config:
   aws:region:
@@ -94,13 +120,59 @@ outputs:
   metricsUrl: ${app.metricsUrl}
 ```
 
+#### Using Existing Docker Image
+```yaml
+name: my-app
+runtime: yaml
+
+packages:
+  container-app: github.com/pulumi/pulumiup-2025-keynote-demo/components/container-app@v0.5.0
+
+config:
+  aws:region:
+    default: us-west-2
+  app_port:
+    default: 8080
+  image:
+    default: my-registry/my-app:latest
+  environment:
+    default: dev
+  cpu:
+    default: "256"
+  memory:
+    default: "512"
+  desired_count:
+    default: 2
+  owner:
+    default: "team-a"
+
+resources:
+  app:
+    type: container-app:index:ContainerApp
+    properties:
+      image: ${image}
+      appPort: ${app_port}
+      cpu: ${cpu}
+      memory: ${memory}
+      env:
+        ENVIRONMENT: ${environment}
+      desiredCount: ${desired_count}
+      owner: ${owner}
+      secrets:
+        API_KEY: ${api_key}
+
+outputs:
+  url: ${app.url}
+  metricsUrl: ${app.metricsUrl}
+```
+
 ## API Documentation
 
 ### Inputs
 
 | Name | Type | Required | Description |
 |------|------|----------|-------------|
-| `app_path` | `string` | Yes | Path to the application code directory |
+| `app_path` | `string` | No* | Path to the application code directory |
 | `app_port` | `number` | Yes | Port the application listens on |
 | `cpu` | `string` | No | CPU units for the container (256 = 0.25 vCPU, default: "256") |
 | `memory` | `string` | No | Memory in MB for the container (default: "512") |
@@ -111,6 +183,9 @@ outputs:
 | `env` | `Record<string, string>` | No | Environment variables for the container |
 | `secrets` | `Record<string, string>` | No | Secrets to be stored in AWS Secrets Manager |
 | `owner` | `string` | No | Owner tag value for all resources |
+| `image` | `string` | No* | Docker image to use instead of building from app_path |
+
+\* Either `app_path` or `image` must be provided, but not both.
 
 ### Outputs
 
@@ -148,7 +223,7 @@ The component creates the following AWS resources:
 5. **Monitoring**
    - CloudWatch Log Group
 
-6. **Container Registry**
+6. **Container Registry** (only when using app_path)
    - ECR Repository
    - Docker image build and push
 
