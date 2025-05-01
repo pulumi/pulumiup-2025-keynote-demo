@@ -20,6 +20,7 @@ class ContainerAppArgs(TypedDict):
     secrets: Optional[Dict[str, pulumi.Input[str]]]  # Secrets
     owner: Optional[pulumi.Input[str]]  # Owner tag value
     image: Optional[pulumi.Input[str]]  # Optional Docker image to use instead of building from app_path
+    department: Optional[pulumi.Input[str]]  # Optional department tag value
 
 class ContainerApp(pulumi.ComponentResource):
     """A component that deploys a containerized application to AWS ECS Fargate."""
@@ -47,9 +48,9 @@ class ContainerApp(pulumi.ComponentResource):
         alb_cert_arn = args.get("alb_cert_arn")
         env = args.get("env", {})
         secrets = args.get("secrets", {})
-        owner = args.get("owner")
         image = args.get("image")
-
+        owner = args.get("owner")
+        department = args.get("department")
         # Validate that either app_path or image is provided
         if not app_path and not image and not (app_path == "none" or image == "none"):
             raise ValueError("Either app_path or image must be provided")
@@ -58,6 +59,8 @@ class ContainerApp(pulumi.ComponentResource):
         common_tags = {"Name": name}
         if owner:
             common_tags["Owner"] = owner
+        if department:
+            common_tags["Department"] = department
 
         # Log the CPU and memory values
         pulumi.log.info(f"CPU: {cpu}, Memory: {memory}")
@@ -377,4 +380,4 @@ if __name__ == "__main__":
     component_provider_host(
         name="container-app",
         components=[ContainerApp],
-    ) 
+    )
