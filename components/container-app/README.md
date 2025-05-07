@@ -1,28 +1,41 @@
-# ContainerApp Component
+# 🚀 ContainerApp Component
 
-A Pulumi component that deploys containerized applications to AWS ECS Fargate with an Application Load Balancer.
+> A powerful Pulumi component that deploys containerized applications to AWS ECS Fargate with an Application Load Balancer.
 
-## Features
+---
 
-- Deploys containerized applications to AWS ECS Fargate
-- Creates or reuses VPC and subnets
-- Sets up an Application Load Balancer
-- Configures CloudWatch logging
-- Supports environment variables and secrets
-- Automatic container image building and pushing to ECR (optional)
-- Resource tagging with owner information
-- ECS service metrics dashboard access
-- Secure networking with restricted VPC access
+## ✨ Key Features
 
-## Installation
+* **Container Deployment**
+  * Deploys to AWS ECS Fargate
+  * Automatic container image building
+  * ECR integration
+
+* **Networking**
+  * VPC and subnet management
+  * Application Load Balancer setup
+  * Secure networking configuration
+
+* **Monitoring & Security**
+  * CloudWatch logging
+  * ECS service metrics dashboard
+  * Environment variables & secrets management
+  * Resource tagging
+
+---
+
+## 🛠️ Installation
 
 ```bash
+# Install using GitHub token
 GITHUB_TOKEN=$(gh auth token) pulumi package add github.com/pulumi/pulumiup-2025-keynote-demo/components/container-app
 ```
 
-## Usage
+---
 
-### Python
+## 📝 Usage Examples
+
+### Python Implementation
 
 #### Using Application Code Directory
 ```python
@@ -72,7 +85,7 @@ export const url = app.url;
 export const metricsUrl = app.metricsUrl;
 ```
 
-### YAML
+### YAML Configuration
 
 #### Using Application Code Directory
 ```yaml
@@ -166,75 +179,87 @@ outputs:
   metricsUrl: ${app.metricsUrl}
 ```
 
-## API Documentation
+---
 
-### Inputs
+## 📚 API Documentation
 
-| Name | Type | Required | Description |
-|------|------|----------|-------------|
-| `app_path` | `string` | No* | Path to the application code directory |
-| `app_port` | `number` | Yes | Port the application listens on |
-| `cpu` | `string` | No | CPU units for the container (256 = 0.25 vCPU, default: "256") |
-| `memory` | `string` | No | Memory in MB for the container (default: "512") |
-| `desired_count` | `number` | No | Number of tasks to run (default: 2) |
-| `vpc_id` | `string` | No | Optional VPC ID to use instead of creating a new one |
-| `public_subnet_ids` | `string[]` | No | Optional subnet IDs to use instead of creating new ones |
-| `alb_cert_arn` | `string` | No | Optional ALB certificate ARN for HTTPS |
-| `env` | `Record<string, string>` | No | Environment variables for the container |
-| `secrets` | `Record<string, string>` | No | Secrets to be stored in AWS Secrets Manager |
-| `owner` | `string` | No | Owner tag value for all resources |
-| `image` | `string` | No* | Docker image to use instead of building from app_path |
+### Input Parameters
 
-\* Either `app_path` or `image` must be provided, but not both.
+| Parameter | Type | Required | Description |
+|:---------:|:----:|:--------:|:------------|
+| `app_path` | `string` | No* | Path to application code |
+| `app_port` | `number` | **Yes** | Application port |
+| `cpu` | `string` | No | CPU units (256 = 0.25 vCPU) |
+| `memory` | `string` | No | Memory in MB |
+| `desired_count` | `number` | No | Number of tasks |
+| `vpc_id` | `string` | No | Optional VPC ID |
+| `public_subnet_ids` | `string[]` | No | Optional subnet IDs |
+| `alb_cert_arn` | `string` | No | ALB certificate ARN |
+| `env` | `Record<string, string>` | No | Environment variables |
+| `secrets` | `Record<string, string>` | No | AWS Secrets Manager secrets |
+| `owner` | `string` | No | Resource owner tag |
+| `image` | `string` | No* | Docker image |
 
-### Outputs
+> *Note: Either `app_path` or `image` must be provided, but not both.*
 
-| Name | Type | Description |
-|------|------|-------------|
-| `url` | `string` | The URL of the deployed application |
-| `metricsUrl` | `string` | The URL to the ECS service metrics dashboard |
+### Output Values
 
-## Resource Creation
+| Output | Type | Description |
+|:------:|:----:|:------------|
+| `url` | `string` | Application URL |
+| `metricsUrl` | `string` | Metrics dashboard URL |
+
+---
+
+## 🔧 Resource Creation
 
 The component creates the following AWS resources:
 
-1. **Networking**
+1. **Networking** `[VPC, Subnets, IGW]`
    - VPC (if not provided)
-   - Public subnets (if not provided)
+   - Public subnets
    - Internet Gateway
    - Route tables
    - Security groups
 
-2. **Compute**
+2. **Compute** `[ECS]`
    - ECS Cluster
    - ECS Task Definition
    - ECS Service
 
-3. **Load Balancing**
+3. **Load Balancing** `[ALB]`
    - Application Load Balancer
    - Target Group
    - HTTP/HTTPS Listeners
 
-4. **Security**
+4. **Security** `[IAM, Secrets]`
    - IAM Roles and Policies
    - Secrets in AWS Secrets Manager
    - Security Groups
 
-5. **Monitoring**
+5. **Monitoring** `[CloudWatch]`
    - CloudWatch Log Group
 
-6. **Container Registry** (only when using app_path)
+6. **Container Registry** `[ECR]`
    - ECR Repository
    - Docker image build and push
 
-## Security Considerations
+---
 
-- All resources are tagged with `Name` and optionally `Owner`
-- Secrets are stored in AWS Secrets Manager
-- IAM roles follow least privilege principle
-- Network access is restricted to VPC CIDR
-- HTTPS is supported when `alb_cert_arn` is provided
+## 🔒 Security Considerations
 
-## License
+* All resources are tagged with `Name` and optionally `Owner`
+* Secrets are stored in AWS Secrets Manager
+* IAM roles follow least privilege principle
+* Network access is restricted to VPC CIDR
+* HTTPS is supported when `alb_cert_arn` is provided
 
-This component is licensed under the MIT License. 
+---
+
+## 📄 License
+
+This component is licensed under the MIT License.
+
+---
+
+*Made with ❤️ by the Pulumi team* 
